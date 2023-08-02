@@ -1,0 +1,53 @@
+data:
+  batch_size: 128
+  color_jitter_strength: 0.0
+  crop_scale:
+    - 0.3
+    - 1.0
+  crop_size: 32    # CIFAR-10 images are 32x32, so set the crop size accordingly
+  image_folder: data  # Change this to the directory where your CIFAR-10 data is stored
+  num_workers: 10
+  pin_mem: true
+  root_path: /home/christina/PycharmProjects/ijepa/data # Replace this with the absolute path to your CIFAR-10 dataset directory
+  use_horizontal_flip: true   # CIFAR-10 can benefit from horizontal flip augmentation
+  use_color_distortion: true  # CIFAR-10 can benefit from color distortion augmentation
+  use_gaussian_blur: false    # CIFAR-10 does not require Gaussian blur augmentation
+logging:
+  folder: /home/christina/PycharmProjects/ijepa/logs
+  write_tag: jepa
+mask:
+  # No need to modify the mask section as it's related to the data augmentation
+  allow_overlap: false
+  aspect_ratio:
+  - 0.75
+  - 1.5
+  enc_mask_scale:
+  - 0.85
+  - 1.0
+  min_keep: 10
+  num_enc_masks: 1
+  num_pred_masks: 4
+  patch_size: 14
+  pred_mask_scale:
+  - 0.15
+  - 0.2
+meta:
+  copy_data: false
+  load_checkpoint: false
+  model_name: vit_small
+  pred_depth: 12
+  pred_emb_dim: 384
+  read_checkpoint: null
+  use_bfloat16: true
+optimization:
+  ema:
+  - 0.996
+  - 1.0
+  epochs: 50
+  final_lr: 1.0e-06
+  final_weight_decay: 0.4
+  ipe_scale: 1.0
+  lr: 0.001
+  start_lr: 0.0002
+  warmup: 40
+  weight_decay: 0.04
