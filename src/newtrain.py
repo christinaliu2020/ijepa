@@ -204,6 +204,15 @@ def main(args, resume_preempt=False):
             drop_last=True
     )
 
+    # import matplotlib.pyplot as plt
+    # testim, _ = unsupervised_sampler.dataset[4]
+    # converted_im = testim.permute(1,2,0).detach().cpu().numpy()
+    # # converted_im = converted_im*2+0.5
+    # # converted_im *=255
+    #
+    # plt.imshow(converted_im)
+    # plt.show()
+
     ipe = len(unsupervised_loader)
     print("length", ipe)
     # -- init optimizer and scheduler
@@ -267,6 +276,7 @@ def main(args, resume_preempt=False):
 
     # -- TRAINING LOOP
     for epoch in range(start_epoch, num_epochs):
+        print("Epoch:", epoch)
         logger.info('Epoch %d' % (epoch + 1))
 
         # -- update distributed-data-loader epoch
@@ -278,7 +288,7 @@ def main(args, resume_preempt=False):
         time_meter = AverageMeter()
 
         for itr, (udata, masks_enc, masks_pred) in enumerate(unsupervised_loader):
-
+            print(f"Iteration: {itr}")
             def load_imgs():
                 # -- unsupervised imgs
                 imgs = udata[0].to(device, non_blocking=True)
@@ -315,7 +325,12 @@ def main(args, resume_preempt=False):
                     return loss
 
                 # Step 1. Forward
-                with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+                if use_bfloat16:
+                    with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=use_bfloat16):
+                        h = forward_target()
+                        z = forward_context()
+                        loss = loss_fn(z, h)
+                else:
                     h = forward_target()
                     z = forward_context()
                     loss = loss_fn(z, h)

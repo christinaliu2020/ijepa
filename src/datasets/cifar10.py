@@ -19,7 +19,7 @@ def make_cifar10(
 ):
     dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
     #test_dataset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-    logger.info('ImageNet dataset created')
+    logger.info('CIFAR10 dataset created')
     dist_sampler = torch.utils.data.distributed.DistributedSampler(
         dataset=dataset,
         num_replicas=world_size,
