@@ -214,7 +214,7 @@ def main(args, resume_preempt=False):
     # plt.show()
 
     ipe = len(unsupervised_loader)
-    print("length", ipe)
+    #print("length", ipe)
     # -- init optimizer and scheduler
     optimizer, scaler, scheduler, wd_scheduler = init_opt(
         encoder=encoder,
