@@ -8,12 +8,12 @@ data:
   image_folder: cifar-10.batches-py  # Change this to the directory where your CIFAR-10 data is stored
   num_workers: 10
   pin_mem: true
-  root_path: /home/christina/PycharmProjects/ijepa/data/cifar-10-batches-py/data_batch_1 # Replace this with the absolute path to your CIFAR-10 dataset directory
+  root_path: data/cifar-10-batches-py/data_batch_1 # Replace this with the absolute path to your CIFAR-10 dataset directory
   use_horizontal_flip: true
   use_color_distortion: true
   use_gaussian_blur: false
 logging:
-  folder: /home/christina/PycharmProjects/ijepa/logs
+  folder: logs
   write_tag: jepa
 mask:
   allow_overlap: false
