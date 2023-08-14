@@ -9,7 +9,7 @@ from src.models.vision_transformer import VisionTransformer, vit_predictor, vit_
 # Define your ContextEncoder, Predictor, and TargetEncoder classes
 from src.helper import init_model, load_checkpoint, init_opt
 
-checkpoint = torch.load('ijepa/logs/jepa-latest.pth.tar')
+checkpoint = torch.load('jepa-latest.pth.tar')
 
 # Create an instance of the ContextEncoder, Predictor, and TargetEncoder
 # encoder = vit_small()
