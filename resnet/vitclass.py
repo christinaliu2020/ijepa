@@ -89,7 +89,7 @@ target_encoder.load_state_dict(new_tar_state_dict)
 # Replace predictor with classification head
 
 #mlp = MLP(in_features = 1536, out_features = 10)
-classification_head = nn.Linear(in_features=predictor.embed_dim, out_features = 10)
+classification_head = nn.Linear(in_features=predictor.pred_embed_dim, out_features = 10)
 predictor = classification_head
 #target_encoder = nn.Identity()
 # classification_head = nn.Linear(in_features=384, out_features=num_classes)
