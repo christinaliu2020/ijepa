@@ -134,9 +134,9 @@ for epoch in range(num_epochs):
         # Print progress
         if (batch_idx + 1) % 100 == 0:
             print(f'Epoch [{epoch+1}/{num_epochs}], Batch [{batch_idx+1}/{len(classification_dataloader)}], Loss: {loss.item()}')
-    loss_values.append(loss)
+    loss_values.append(loss.item())
 # Save the fine-tuned classification head
-loss_values = loss_values.detach().numpy()
+#loss_values = loss_values.detach().numpy()
 epochs = range(1, len(loss_values) + 1)
 import matplotlib.pyplot as plt
 # Plot the loss curve
@@ -147,5 +147,5 @@ plt.ylabel('Loss')
 plt.legend()
 plt.show()
 
-torch.save(encoder.state_dict(), 'resnet/fine_tuned_model.pth')
+torch.save(encoder.state_dict(), 'fine_tuned_model.pth')
 
