@@ -11,11 +11,6 @@ from src.helper import init_model, load_checkpoint, init_opt
 
 checkpoint = torch.load('jepa-latest.pth.tar')
 
-# Create an instance of the ContextEncoder, Predictor, and TargetEncoder
-# encoder = vit_small()
-# predictor = vit_predictor()
-# target_encoder = vit_small()
-
 encoder, predictor = init_model(
     device='cuda',
     patch_size=16,
@@ -54,11 +49,11 @@ for key, value in checkpoint['encoder'].items():
     else:
         new_enc_state_dict[key] = value
 
-# Load the new state_dict into your model
+
 encoder.load_state_dict(new_enc_state_dict)
 print(new_enc_state_dict.keys())
 print(checkpoint['predictor'].keys())
-# Create a new state_dict with modified keys
+
 new_pred_state_dict = {}
 for key, value in checkpoint['predictor'].items():
     if key.startswith('module.'):
@@ -74,7 +69,7 @@ def remove_keys_between_indices(dictionary, start_index, end_index):
 print(len(new_pred_state_dict.keys()))
 new_pred_state_dict = remove_keys_between_indices(new_pred_state_dict, 76, 147)
 print(new_pred_state_dict.keys())
-#Unexpected key(s) in state_dict: "predictor_blocks.6.norm1.weight", "predictor_blocks.6.norm1.bias"
+
 predictor.load_state_dict(new_pred_state_dict)
 
 new_tar_state_dict = {}
@@ -85,18 +80,13 @@ for key, value in checkpoint['target_encoder'].items():
     else:
         new_tar_state_dict[key] = value
 target_encoder.load_state_dict(new_tar_state_dict)
-# print(new_tar_state_dict.keys())
+
 # Replace predictor with classification head
 
-#mlp = MLP(in_features = 1536, out_features = 10)
+
 classification_head = nn.Linear(in_features=predictor.embed_dim, out_features = 10)
 predictor = classification_head
-#target_encoder = nn.Identity()
-# classification_head = nn.Linear(in_features=384, out_features=num_classes)
-# predictor = classification_head
 
-# Load and preprocess CIFAR-10 dataset for classification
-# # Define data transforms
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
