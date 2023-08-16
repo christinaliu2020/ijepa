@@ -4,11 +4,11 @@ data:
   crop_scale:
   - 0.3
   - 1.0
-  crop_size: 224    # CIFAR-10 images are 32x32, so set the crop size accordingly
-  image_folder: cifar-10.batches-py  # Change this to the directory where your CIFAR-10 data is stored
+  crop_size: 224  
+  image_folder: cifar-10.batches-py  
   num_workers: 10
   pin_mem: true
-  root_path: data/cifar-10-batches-py/data_batch_1 # Replace this with the absolute path to your CIFAR-10 dataset directory
+  root_path: data/cifar-10-batches-py
   use_horizontal_flip: true
   use_color_distortion: true
   use_gaussian_blur: false
