@@ -2,6 +2,7 @@ import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchvision.models
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
@@ -13,17 +14,19 @@ import matplotlib.pyplot as plt
 import pytorch_lightning as pl
 import wandb
 from lightning.pytorch.loggers.wandb import WandbLogger
-
+from transformers import ViTForImageClassification, AdamW, ViTModel
+from vit_pytorch import SimpleViT
+from pytorch_pretrained_vit import ViT
 class IjepaCifar10(pl.LightningModule):
     def __init__(self, checkpoint_path = None, num_classes=10, learning_rate=1e-3, track_wandb=True):
         super().__init__()
         self.encoder, self.predictor = init_model(
             device='cuda',
             patch_size=16,
-            model_name='vit_small',  # changed from vit_base
+            model_name='vit_base',  # changed from vit_base
             crop_size=224,
             pred_depth=12,
-            pred_emb_dim=384
+            pred_emb_dim=768
         )
         if checkpoint_path is not None:
 
@@ -49,18 +52,29 @@ class IjepaCifar10(pl.LightningModule):
             pred_state_dict = removeprefix(checkpoint['predictor'])
             new_pred_state_dict = remove_keys_between_indices(pred_state_dict, 76, 147)
             #self.predictor.load_state_dict(new_pred_state_dict)
-
+        #pretrained_weights = torchvision.models.ViT_B_16_Weights.DEFAULT
+        #self.encoder = torchvision.models.vit_b_16(weights=pretrained_weights)
+        #self.encoder = ViT('B_16_imagenet1k', pretrained=True)
+        #self.encoder = SimpleViT(   image_size = 224,
+                                    # patch_size = 16,
+                                    # num_classes = 10,
+                                    # dim = 768,
+                                    # depth = 12,
+                                    # heads = 12,
+                                    # mlp_dim = 3072)
         self.avg_pooling = nn.AdaptiveAvgPool1d(1)
-        classification_head = nn.Linear(in_features=self.predictor.embed_dim, out_features=10)
-        classification_head = nn.Sequential(torch.nn.BatchNorm1d(self.predictor.embed_dim, affine=False, eps=1e-6),
-                                            classification_head)
+        #self.encoder.fc = nn.Linear(in_features = self.encoder.fc.in_features, out_features=10)
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+        self.encoder.heads = nn.Linear(in_features = 768, out_features=10)
+        lin_layer = nn.Linear(in_features = 768, out_features=10)
+        classification_head = nn.Sequential(torch.nn.BatchNorm1d(768, affine=False, eps=1e-6),lin_layer)
         self.predictor = classification_head
 
-        # freeze all features except for class head
-        # for param in self.encoder.parameters():
-        #      param.requires_grad = False
+        #freeze all features except for class head
+
         #
-        # for param in classification_head.parameters():
+        # for param in self.predictor.parameters():
         #     param.requires_grad = True
         self.learning_rate = learning_rate
 
@@ -79,7 +93,7 @@ class IjepaCifar10(pl.LightningModule):
         pooled_output = self.avg_pooling(enc_output)
         pooled_output = pooled_output.view(pooled_output.size(0), -1)
         pred_output = self.predictor(pooled_output)
-
+        pred_output = nn.functional.softmax(pred_output, dim=-1)
         return pred_output
 
     def configure_optimizers(self):
@@ -88,6 +102,7 @@ class IjepaCifar10(pl.LightningModule):
         return optimizer
 
     def training_step(self, batch, batch_idx):
+
         images, labels = batch
         # enc_output = self.encoder(images.to('cuda'))
         # enc_output = enc_output.permute(0, 2, 1)
@@ -102,7 +117,9 @@ class IjepaCifar10(pl.LightningModule):
         acc = (preds == labels).sum().item() / logits.size(dim=0)
         acc *= 100
         self.train_step_acc.append(acc)
-
+        # if batch_idx == 0:
+        #     wandb.log(images, preds,)
+        #visualize the input, prediction, ground truth at batch idx 0
         return {'loss': loss}
 
     def on_train_epoch_end(self):
