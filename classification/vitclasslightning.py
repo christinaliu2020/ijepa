@@ -16,18 +16,20 @@ import wandb
 from lightning.pytorch.loggers.wandb import WandbLogger
 from transformers import ViTForImageClassification, AdamW, ViTModel
 from vit_pytorch import SimpleViT
-from pytorch_pretrained_vit import ViT
+from timm.optim.lars import Lars
+
+#from pytorch_pretrained_vit import ViT
 class IjepaCifar10(pl.LightningModule):
     def __init__(self, checkpoint_path = None, num_classes=10, learning_rate=1e-3, track_wandb=True):
         super().__init__()
-        self.encoder, self.predictor = init_model(
+        self.encoder= init_model(
             device='cuda',
             patch_size=16,
             model_name='vit_base',  # changed from vit_base
             crop_size=224,
             pred_depth=12,
-            pred_emb_dim=768
-        )
+            pred_emb_dim=384
+        )[0]
         if checkpoint_path is not None:
 
             checkpoint = torch.load(checkpoint_path)
@@ -62,20 +64,22 @@ class IjepaCifar10(pl.LightningModule):
                                     # depth = 12,
                                     # heads = 12,
                                     # mlp_dim = 3072)
-        self.avg_pooling = nn.AdaptiveAvgPool1d(1)
+        #self.avg_pooling = nn.AvgPool1d(196, stride=1)
         #self.encoder.fc = nn.Linear(in_features = self.encoder.fc.in_features, out_features=10)
-        for param in self.encoder.parameters():
-            param.requires_grad = False
-        self.encoder.heads = nn.Linear(in_features = 768, out_features=10)
-        lin_layer = nn.Linear(in_features = 768, out_features=10)
-        classification_head = nn.Sequential(torch.nn.BatchNorm1d(768, affine=False, eps=1e-6),lin_layer)
-        self.predictor = classification_head
 
-        #freeze all features except for class head
+        #self.batch_norm = nn.BatchNorm1d(196, affine=False, eps=1e-6)
+        self.encoder.norm = torch.nn.Identity()
+        #self.encoder.encoder.ln = nn.Identity()
+        #self.encoder.heads = nn.Identity()
+        # for param in self.encoder.parameters():
+        #      param.requires_grad = False
+        lin_layer = nn.Linear(in_features=768, out_features=10)
+        self.head = nn.Sequential(torch.nn.BatchNorm1d(768, affine=False, eps=1e-6),lin_layer)
+        for param in self.head.parameters():
+            param.requires_grad = True
+        #classification_head = nn.Sequential(torch.nn.BatchNorm1d(768, affine=False, eps=1e-6),lin_layer)
+        #self.predictor =nn.Linear(in_features = 384, out_features=10)
 
-        #
-        # for param in self.predictor.parameters():
-        #     param.requires_grad = True
         self.learning_rate = learning_rate
 
 
@@ -89,26 +93,32 @@ class IjepaCifar10(pl.LightningModule):
 
     def forward(self,x):
         enc_output = self.encoder(x)
-        enc_output = enc_output.permute(0, 2, 1)
-        pooled_output = self.avg_pooling(enc_output)
-        pooled_output = pooled_output.view(pooled_output.size(0), -1)
-        pred_output = self.predictor(pooled_output)
-        pred_output = nn.functional.softmax(pred_output, dim=-1)
-        return pred_output
+        #enc_output = self.batch_norm(enc_output)
+        #enc_output = enc_output.permute(0, 2, 1)
+        #pooled_output = self.avg_pooling(enc_output)
+        #pooled_output = pooled_output.view(pooled_output.size(0), -1)
+        pooled_output= enc_output.mean(dim=1) #average pool
+        output = self.head(pooled_output)
+        output = nn.functional.softmax(output, dim=1)
+        return output
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        #optimizer = torch.optim.LARS
-        return optimizer
+
+        optimizer = Lars(
+            self.encoder.parameters(),
+            lr=0.001,
+            momentum=0, #0.9,
+            weight_decay=0, #0.0005,
+            trust_coeff=0.001,
+            eps=1e-8,
+        )
+        #in paper uses lr with step-wise decay, divide by factor of 10 every 15 epochs
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
+        return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
 
         images, labels = batch
-        # enc_output = self.encoder(images.to('cuda'))
-        # enc_output = enc_output.permute(0, 2, 1)
-        # pooled_output = self.avg_pooling(enc_output)
-        # pooled_output = pooled_output.view(pooled_output.size(0), -1)
-        # pred_output = self.predictor(pooled_output)
         logits = self.forward(images)
         loss = nn.CrossEntropyLoss()(logits, labels)
         self.train_step_losses.append(loss)
@@ -117,9 +127,27 @@ class IjepaCifar10(pl.LightningModule):
         acc = (preds == labels).sum().item() / logits.size(dim=0)
         acc *= 100
         self.train_step_acc.append(acc)
-        # if batch_idx == 0:
-        #     wandb.log(images, preds,)
         #visualize the input, prediction, ground truth at batch idx 0
+
+        if batch_idx == 0:
+            # Visualize the input image
+            wandb.log({"input_image": [wandb.Image(images[0])]})
+
+
+            pred_probabilities = logits.cpu().detach().numpy()
+            plt.figure(figsize=(10, 4))
+            plt.bar(range(len(pred_probabilities[0])), pred_probabilities[0])
+            plt.xticks(range(len(pred_probabilities[0])))
+            plt.xlabel("Class")
+            plt.ylabel("Probability")
+            plt.title(f"Prediction Probabilities; ground truth label: {labels[0].item()}")
+
+            plt.savefig("prediction_probabilities.png")
+            plt.close()
+
+            wandb.log({"prediction_probabilities": [wandb.Image("prediction_probabilities.png")]})
+
+            #wandb.log({"ground_truth": wandb.Image(labels[0])})
         return {'loss': loss}
 
     def on_train_epoch_end(self):
@@ -136,6 +164,9 @@ class IjepaCifar10(pl.LightningModule):
         self.train_step_acc.clear()
         self.train_step_losses.clear()
 
+        if (self.current_epoch+1) % 15 ==0:
+            lr = self.trainer.optimizers[0].param_groups[0]['lr']
+            print(f'Learning rate at epoch {self.current_epoch +1}: {lr}')
         return {'train_loss': avg_loss, 'train_acc': avg_acc}
 
     def validation_step(self, batch, batch_idx):
